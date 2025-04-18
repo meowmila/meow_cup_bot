@@ -178,7 +178,7 @@ async def universal_flow(call: CallbackQuery):
     data = call.data
 
     if data in ["турнир", "ивент", "праки"]:
-    ctx[uid] = {"type": data, "step": "type"}
+        ctx[uid] = {"type": data, "step": "type"}
     kb = build_keyboard(get_upcoming_dates(), row=1)
     pid = photos.get(data)
 
