@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import asyncio
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode
@@ -8,12 +9,13 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
-import asyncio
+from aiogram.client.default import DefaultBotProperties
 
 API_TOKEN = "7507739946:AAE0p-9CEJWjUM0oXYamsakLvCEvz5KnLJA"
 ADMIN_ID = 947800235
 
-bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
+# ✅ правильный способ создания бота в aiogram 3.x
+bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 
 users = set()
@@ -179,6 +181,11 @@ async def broadcast_message(message: Message, state: FSMContext):
             continue
     await message.answer("✅ Рассылка завершена!")
 
+# ✅ исправленная регистрация старта
+@dp.startup()
+async def on_startup(bot: Bot):
+    asyncio.create_task(clean_old())
+
 async def clean_old():
     while True:
         now = datetime.now().date()
@@ -189,5 +196,4 @@ async def clean_old():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    dp.startup.register(lambda _: asyncio.create_task(clean_old()))
     dp.run_polling(bot)
