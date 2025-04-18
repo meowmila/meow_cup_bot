@@ -199,10 +199,13 @@ async def universal_flow(call: CallbackQuery):
         pid = photos.get(data)
         kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
         await call.message.edit_text(
-            f"🕒 Выберите время мероприятия:
+    f"🕒 Выберите время мероприятия:
 
 📌 Вы выбрали:
 • Тип: {ctx[uid].get('type', '-')}
+• Дата: {ctx[uid].get('date', '-')}",
+    reply_markup=kb
+)}
 • Дата: {ctx[uid].get('date', '-')}"])
         await call.message.edit_text(
             f"🎯 Выберите стадию турнира:
