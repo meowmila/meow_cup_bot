@@ -21,7 +21,14 @@ bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
 users = set()
-tournaments = []
+import json
+
+tournaments_file = "tournaments.json"
+if os.path.exists(tournaments_file):
+    with open(tournaments_file, "r", encoding="utf-8") as f:
+        tournaments = json.load(f)
+else:
+    tournaments = []
 photos = {}
 ctx = {}
 
@@ -64,6 +71,8 @@ def cleanup_old():
     today = datetime.now().strftime("%d.%m.%Y")
     global tournaments
     tournaments = [t for t in tournaments if t['date'] >= today]
+    with open(tournaments_file, "w", encoding="utf-8") as f:
+        json.dump(tournaments, f, ensure_ascii=False, indent=2) >= today]
 
 # Команды
 @dp.message(F.text == "/start")
@@ -111,6 +120,8 @@ async def handle_broadcast(message: Message, state: FSMContext):
             fail += 1
     await message.answer(f"📢 Рассылка завершена! ✅ {success}, ❌ {fail}")
     await state.clear()
+    with open(tournaments_file, "w", encoding="utf-8") as f:
+        json.dump(tournaments, f, ensure_ascii=False, indent=2)
 
 @dp.message(F.from_user.id == ADMIN_ID, F.photo, F.caption)
 async def photo_button_upload(message: Message):
@@ -225,6 +236,15 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     async def start():
+    async def ping():
+        while True:
+            try:
+                await bot.get_me()
+            except:
+                pass
+            await asyncio.sleep(300)  # каждые 5 минут
+
+    asyncio.create_task(ping())
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
 
