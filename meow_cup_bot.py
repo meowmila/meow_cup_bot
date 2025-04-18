@@ -72,7 +72,7 @@ def cleanup_old():
     global tournaments
     tournaments = [t for t in tournaments if t['date'] >= today]
     with open(tournaments_file, "w", encoding="utf-8") as f:
-        json.dump(tournaments, f, ensure_ascii=False, indent=2) >= today]
+        json.dump(tournaments, f, ensure_ascii=False, indent=2)
 
 # Команды
 @dp.message(F.text == "/start")
@@ -236,22 +236,15 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     async def start():
-    asyncio.create_task(ping())
     async def ping():
         while True:
             try:
                 await bot.get_me()
+                print("⏳ Пинг Telegram: OK")
             except:
-                pass
+                print("⚠️ Пинг не удался")
             await asyncio.sleep(300)
-        while True:
-            try:
-                await bot.get_me()
-            except:
-                pass
-            await asyncio.sleep(300)  # каждые 5 минут
 
-    asyncio.create_task(ping())
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
 
