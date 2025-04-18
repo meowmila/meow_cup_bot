@@ -69,13 +69,12 @@ def cleanup_old():
 @dp.message(F.text == "/start")
 async def start_cmd(message: Message):
     users.add(message.from_user.id)
-    kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="🟦 Меню")]],
-        resize_keyboard=True
-    )
-    if message.from_user.id == ADMIN_ID:
-        kb.keyboard.append([types.KeyboardButton(text="🔧 Панель администратора")])
-    await message.answer("Добро пожаловать в MEOW.CUP!", reply_markup=kb)
+    kb = build_keyboard(["турнир", "ивент", "праки"], row=1)
+    pid = photos.get("меню")
+    if pid:
+        await message.answer_photo(pid, caption="Выберите тип:", reply_markup=kb)
+    else:
+        await message.answer("Выберите тип:", reply_markup=kb)
 
 @dp.message(F.text == "🔧 Панель администратора")
 async def admin_panel(message: Message):
