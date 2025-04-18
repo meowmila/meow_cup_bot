@@ -192,7 +192,6 @@ async def universal_flow(call: CallbackQuery):
             await call.message.edit_text("Выберите дату:", reply_markup=kb)
         except:
             await call.message.answer("Выберите дату:", reply_markup=kb)
-            except:
                 await call.message.edit_text("Выберите дату:", reply_markup=kb)
 
     elif data in get_upcoming_dates():
