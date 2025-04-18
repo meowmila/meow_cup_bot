@@ -245,9 +245,8 @@ if __name__ == '__main__':
                     print("⚠️ Пинг не удался")
                 await asyncio.sleep(300)
 
-        asyncio.create_task(ping())
-
-                await bot.delete_webhook(drop_pending_updates=True)
+                asyncio.create_task(ping())
+        await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
 
     asyncio.run(start())
