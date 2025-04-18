@@ -1,3 +1,2 @@
-aiogram==3.4.1
-python-dotenv
-Pillow
+aiogram==3.3.0
+pillow
