@@ -83,7 +83,7 @@ async def start_cmd(message: Message):
     if pid:
         await message.answer_photo(pid, caption="Выберите тип:", reply_markup=kb)
     else:
-        await message.answer("Выберите тип:", reply_markup=kb)
+        await message.edit_text("Выберите тип:", reply_markup=kb)
 
 @dp.message(F.text == "🔧 Панель администратора")
 async def admin_panel(message: Message):
@@ -175,13 +175,13 @@ async def universal_flow(call: CallbackQuery):
         ctx[uid] = {"type": data}
         kb = build_keyboard(get_upcoming_dates(), row=1)
         pid = photos.get(data)
-        await call.message.answer_photo(pid, caption="Выберите дату:", reply_markup=kb) if pid else await call.message.answer("Выберите дату:", reply_markup=kb)
+        await call.message.edit_media(types.InputMediaPhoto(media=pid, caption="Выберите дату:") if pid else types.InputMediaPhoto(media="", caption="Выберите дату:"), reply_markup=kb)
 
     elif data in get_upcoming_dates():
         ctx[uid]["date"] = data
         kb = build_keyboard(["18:00", "21:00"])
         pid = photos.get(data)
-        await call.message.answer_photo(pid, caption="Выберите время:", reply_markup=kb) if pid else await call.message.answer("Выберите время:", reply_markup=kb)
+        await call.message.answer_photo(pid, caption="Выберите время:", reply_markup=kb) if pid else await call.message.edit_text("Выберите время:", reply_markup=kb)
 
     elif data in ["18:00", "21:00"]:
         ctx[uid]["time"] = data
@@ -191,7 +191,7 @@ async def universal_flow(call: CallbackQuery):
         if not stages:
             return await call.message.answer("Нет стадий на эту дату", reply_markup=build_keyboard(["Назад"]))
         kb = build_keyboard(stages)
-        await call.message.answer("Выберите стадию:", reply_markup=kb)
+        await call.message.edit_text("Выберите стадию:", reply_markup=kb)
 
     elif data in ["1/8", "1/4", "1/2", "финал"]:
         ctx[uid]['stage'] = data
