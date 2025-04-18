@@ -202,20 +202,8 @@ async def universal_flow(call: CallbackQuery):
             f"🕒 Выберите время мероприятия:
 
 📌 Вы выбрали:
-• Тип: {ctx[uid].get('type', '-')}",
-            reply_markup=kb
-        )
-
-    elif data in ["18:00", "21:00"]:
-        ctx[uid]["time"] = data
-        ctx[uid]["step"] = "time"
-        if ctx[uid]['type'] == "праки":
-            return await show_titles(call, uid)
-        stages = sorted(set(t['stage'] for t in tournaments if t['date'] == ctx[uid]['date'] and t['time'] == data and t['type'] == ctx[uid]['type']))
-        if not stages:
-            return await call.message.answer("Нет стадий на эту дату", reply_markup=build_keyboard(["Назад"]))
-        kb = build_keyboard(stages)
-        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+• Тип: {ctx[uid].get('type', '-')}
+• Дата: {ctx[uid].get('date', '-')}"])
         await call.message.edit_text(
             f"🎯 Выберите стадию турнира:
 
