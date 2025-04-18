@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode
-from aiogram.types import Message, CallbackQuery, InputFile
+from aiogram.types import CallbackQuery, InputMediaPhoto
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -17,11 +17,11 @@ ADMIN_ID = 947800235
 bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
-USERS_FILE = "tournaments.json"
+TOURNAMENTS_FILE = "tournaments.json"
 PHOTOS_DIR = "photos"
 os.makedirs(PHOTOS_DIR, exist_ok=True)
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, "w") as f:
+if not os.path.exists(TOURNAMENTS_FILE):
+    with open(TOURNAMENTS_FILE, "w") as f:
         json.dump([], f)
 
 def get_upcoming_dates():
@@ -29,65 +29,58 @@ def get_upcoming_dates():
     return [(today + timedelta(days=i)).strftime("%d.%m.%Y") for i in range(3)]
 
 def load_tournaments():
-    with open(USERS_FILE, "r") as f:
+    with open(TOURNAMENTS_FILE, "r") as f:
         return json.load(f)
 
 def save_tournaments(data):
-    with open(USERS_FILE, "w") as f:
+    with open(TOURNAMENTS_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
 async def overlay_text_on_photo(photo: types.PhotoSize, text: str) -> str:
-    file_path = f"{PHOTOS_DIR}/{photo.file_id}.jpg"
-    await bot.download(photo, destination=file_path)
-    image = Image.open(file_path).convert("RGB")
-    draw = ImageDraw.Draw(image)
+    path = f"{PHOTOS_DIR}/{photo.file_id}.jpg"
+    await bot.download(photo, destination=path)
+    img = Image.open(path).convert("RGB")
+    draw = ImageDraw.Draw(img)
     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-    w, h = image.size
-    text_w, text_h = draw.textsize(text, font=font)
-    draw.text(((w - text_w) / 2, h - text_h - 20), text, font=font, fill="white")
-    result_path = f"{PHOTOS_DIR}/txt_{photo.file_id}.jpg"
-    image.save(result_path)
-    return result_path
+    w, h = img.size
+    tw, th = draw.textsize(text, font=font)
+    draw.text(((w - tw) / 2, h - th - 20), text, font=font, fill="white")
+    result = f"{PHOTOS_DIR}/txt_{photo.file_id}.jpg"
+    img.save(result)
+    return result
 
-async def go_to_step(callback: CallbackQuery, state: FSMContext, step_name: str, buttons: list, title: str):
+async def go_to_step(callback: CallbackQuery, state: FSMContext, step: str, buttons: list, title: str):
     data = await state.get_data()
     history = data.get("step_history", [])
-    if history and history[-1] != step_name:
-        history.append(step_name)
-    elif not history:
-        history = [step_name]
+    if not history or history[-1] != step:
+        history.append(step)
     await state.update_data(step_history=history)
     kb = InlineKeyboardBuilder()
-    for b in buttons:
-        kb.button(text=b["text"], callback_data=b["data"])
+    for btn in buttons:
+        kb.button(text=btn["text"], callback_data=btn["data"])
     kb.adjust(len(buttons))
     kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
     await callback.message.edit_text(f"<b>{title}</b>", reply_markup=kb.as_markup())
 
 @dp.message(F.text == "/start")
-async def start(message: Message, state: FSMContext):
+async def start(message: types.Message, state: FSMContext):
     await state.clear()
-    buttons = [
-        {"text": "Турнир", "data": "type_Турнир"},
-        {"text": "Ивент", "data": "type_Ивент"},
-        {"text": "Праки", "data": "type_Праки"},
-    ]
-    if message.from_user.id == ADMIN_ID:
-        buttons.append({"text": "⚙️ Админ-панель", "data": "admin_panel"})
     kb = InlineKeyboardBuilder()
-    for b in buttons:
-        kb.button(text=b["text"], callback_data=b["data"])
+    kb.button(text="Турнир", callback_data="type_Турнир")
+    kb.button(text="Ивент", callback_data="type_Ивент")
+    kb.button(text="Праки", callback_data="type_Праки")
+    if message.from_user.id == ADMIN_ID:
+        kb.button(text="⚙️ Админ-панель", callback_data="admin_panel")
     kb.adjust(2)
     await message.answer("<b>Выберите тип мероприятия:</b>", reply_markup=kb.as_markup())
-
 @dp.callback_query(F.data.startswith("type_"))
-async def type_chosen(callback: CallbackQuery, state: FSMContext):
+async def choose_type(callback: CallbackQuery, state: FSMContext):
     await state.update_data(type=callback.data.split("_")[1])
-    buttons = [{"text": date, "data": f"date_{date}"} for date in get_upcoming_dates()]
+    buttons = [{"text": d, "data": f"date_{d}"} for d in get_upcoming_dates()]
     await go_to_step(callback, state, "type", buttons, "Выберите дату:")
 
 @dp.callback_query(F.data.startswith("date_"))
-async def date_chosen(callback: CallbackQuery, state: FSMContext):
+async def choose_date(callback: CallbackQuery, state: FSMContext):
     await state.update_data(date=callback.data.split("_")[1])
     buttons = [
         {"text": "18:00", "data": "time_18"},
@@ -96,7 +89,7 @@ async def date_chosen(callback: CallbackQuery, state: FSMContext):
     await go_to_step(callback, state, "date", buttons, "Выберите время:")
 
 @dp.callback_query(F.data.startswith("time_"))
-async def time_chosen(callback: CallbackQuery, state: FSMContext):
+async def choose_time(callback: CallbackQuery, state: FSMContext):
     await state.update_data(time=callback.data.split("_")[1])
     buttons = [
         {"text": "🆓 Free", "data": "access_Free"},
@@ -105,7 +98,7 @@ async def time_chosen(callback: CallbackQuery, state: FSMContext):
     await go_to_step(callback, state, "time", buttons, "Выберите доступ:")
 
 @dp.callback_query(F.data.startswith("access_"))
-async def access_chosen(callback: CallbackQuery, state: FSMContext):
+async def choose_access(callback: CallbackQuery, state: FSMContext):
     await state.update_data(access=callback.data.split("_")[1])
     data = await state.get_data()
     if data["type"] == "Праки":
@@ -118,7 +111,7 @@ async def access_chosen(callback: CallbackQuery, state: FSMContext):
     await go_to_step(callback, state, "access", buttons, "Выберите стадию:")
 
 @dp.callback_query(F.data.startswith("stage_"))
-async def stage_chosen(callback: CallbackQuery, state: FSMContext):
+async def choose_stage(callback: CallbackQuery, state: FSMContext):
     await state.update_data(stage=callback.data.split("_")[1])
     await show_tournaments(callback, state)
 
@@ -128,12 +121,13 @@ async def go_back(callback: CallbackQuery, state: FSMContext):
     history = data.get("step_history", [])
     if history:
         history.pop()
-        await state.update_data(step_history=history)
     if not history:
         return await start(callback.message, state)
     prev = history[-1]
+    await state.update_data(step_history=history)
+
     if prev == "type":
-        buttons = [{"text": date, "data": f"date_{date}"} for date in get_upcoming_dates()]
+        buttons = [{"text": d, "data": f"date_{d}"} for d in get_upcoming_dates()]
         await go_to_step(callback, state, "type", buttons, "Выберите дату:")
     elif prev == "date":
         buttons = [{"text": "18:00", "data": "time_18"}, {"text": "21:00", "data": "time_21"}]
@@ -147,9 +141,12 @@ async def go_back(callback: CallbackQuery, state: FSMContext):
             buttons = [{"text": "🆓 Free", "data": "access_Free"}, {"text": "💎 VIP", "data": "access_VIP"}]
             await go_to_step(callback, state, "access", buttons, "Выберите доступ:")
         else:
-            buttons = [{"text": "1/2", "data": "stage_1/2"}, {"text": "1/4", "data": "stage_1/4"}, {"text": "1/8", "data": "stage_1/8"}]
+            buttons = [
+                {"text": "1/2", "data": "stage_1/2"},
+                {"text": "1/4", "data": "stage_1/4"},
+                {"text": "1/8", "data": "stage_1/8"},
+            ]
             await go_to_step(callback, state, "access", buttons, "Выберите стадию:")
-
 async def show_tournaments(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     tournaments = load_tournaments()
@@ -161,28 +158,33 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
         and t.get("access") == data.get("access")
         and (t.get("stage") == data.get("stage") if data.get("type") != "Праки" else True)
     ]
+
     kb = InlineKeyboardBuilder()
     kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
+
     if not filtered:
         await callback.message.edit_text("<b>Нет доступных турниров.</b>", reply_markup=kb.as_markup())
         return
-    for t in filtered:
-        caption = (
-            f"<b>{t['title']}</b>\n\n"
-            f"🎯 Стадия: {t.get('stage', '-') if t['type'] != 'Праки' else '—'}\n"
-            f"📅 Дата: {t['date']}\n"
-            f"🕒 Время: {t['time']}\n"
-            f"✨ Тип: {t['type']}\n"
-            f"🔒 Доступ: {t['access']}\n"
-            f"🎁 Приз: {t['prize']}\n"
-            f"🔗 Ссылка: {t['link']}"
-        )
-        if os.path.exists(t["photo"]):
-            await callback.message.answer_photo(InputFile(t["photo"]), caption=caption)
-        else:
-            await callback.message.answer(caption)
-    await callback.message.answer("⬅ Назад", reply_markup=kb.as_markup())
 
+    t = filtered[0]  # пока один, позже можно кнопки сделать
+    caption = (
+        f"<b>{t['title']}</b>\n\n"
+        f"🎯 Стадия: {t.get('stage', '-') if t['type'] != 'Праки' else '—'}\n"
+        f"📅 Дата: {t['date']}\n"
+        f"🕒 Время: {t['time']}\n"
+        f"✨ Тип: {t['type']}\n"
+        f"🔒 Доступ: {t['access']}\n"
+        f"🎁 Приз: {t['prize']}\n"
+        f"🔗 Ссылка: {t['link']}"
+    )
+
+    if os.path.exists(t["photo"]):
+        media = InputMediaPhoto(media=types.FSInputFile(t["photo"]), caption=caption, parse_mode="HTML")
+        await callback.message.edit_media(media=media, reply_markup=kb.as_markup())
+    else:
+        await callback.message.edit_text(caption, reply_markup=kb.as_markup())
+
+# --- Админ-панель ---
 @dp.callback_query(F.data == "admin_panel")
 async def admin_panel(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
@@ -203,10 +205,10 @@ async def admin_add_instruct(callback: CallbackQuery):
     )
 
 @dp.message(F.photo, F.caption, F.from_user.id == ADMIN_ID)
-async def save_tournament(message: Message, state: FSMContext):
+async def save_tournament(message: types.Message, state: FSMContext):
     if await state.get_state() == "waiting_photo_text":
         new_path = await overlay_text_on_photo(message.photo[-1], message.caption.strip())
-        await message.answer_photo(InputFile(new_path), caption="✅ Фото с текстом готово.")
+        await message.answer_photo(types.FSInputFile(new_path), caption="✅ Фото с текстом готово.")
         await state.clear()
         return
     try:
@@ -243,16 +245,15 @@ async def start_broadcast(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("📢 Отправь сообщение (текст или фото с подписью) для рассылки.")
 
 @dp.message(F.from_user.id == ADMIN_ID)
-async def broadcast_msg(message: Message, state: FSMContext):
+async def broadcast_msg(message: types.Message, state: FSMContext):
     if await state.get_state() != "broadcast":
         return
     await state.clear()
-    users = set()
+    users = {ADMIN_ID}
     tournaments = load_tournaments()
     for t in tournaments:
         if "telegram_id" in t:
             users.add(t["telegram_id"])
-    users.add(ADMIN_ID)
     for uid in users:
         try:
             if message.photo:
