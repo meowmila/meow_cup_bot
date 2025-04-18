@@ -201,79 +201,14 @@ async def universal_flow(call: CallbackQuery):
         await call.message.edit_text(
     f"🕒 Выберите время мероприятия:
 
-📌 Вы выбрали:
-• Тип: {ctx[uid].get('type', '-')}
-• Дата: {ctx[uid].get('date', '-')}",
+"
+    f"📌 Вы выбрали:
+"
+    f"• Тип: {ctx[uid].get('type', '-')}
+"
+    f"• Дата: {ctx[uid].get('date', '-')}",
     reply_markup=kb
-)}
-• Дата: {ctx[uid].get('date', '-')}"])
-        await call.message.edit_text(
-            f"🎯 Выберите стадию турнира:
-
-📌 Вы выбрали:
-• Тип: {ctx[uid].get('type', '-')}
-• Дата: {ctx[uid].get('date', '-')}
-• Время: {ctx[uid].get('time', '-')}",
-            reply_markup=kb
-        )
-
-    elif data in ["1/8", "1/4", "1/2", "финал"]:
-        ctx[uid]['stage'] = data
-        ctx[uid]['step'] = "stage"
-        kb = build_keyboard(["duo", "squad"])
-        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-        await call.message.edit_text(
-            f"👥 Выберите формат команд:
-
-📌 Вы выбрали:
-• Тип: {ctx[uid].get('type', '-')}
-• Дата: {ctx[uid].get('date', '-')}
-• Время: {ctx[uid].get('time', '-')}
-• Стадия: {ctx[uid].get('stage', '-')}",
-            reply_markup=kb
-        )
-
-    elif data in ["duo", "squad"]:
-        ctx[uid]['format'] = data
-        ctx[uid]['step'] = "format"
-        await show_titles(call, uid)
-
-    elif any(t['title'] == data for t in tournaments):
-        t = next(t for t in tournaments if t['title'] == data)
-        text = f"""🏆 <b>{t['title']}</b>
-
-🍬 │ Призовой фонд: 💸
-🍬 │ Фри слотов: 14
-🍬 │ Стадия: {t['stage']}
-🍬 │ Проход: Топ 6"""
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔗 Перейти к турниру", url=t['link'])],
-            [InlineKeyboardButton(text="Назад", callback_data="Назад")]
-        ])
-        await call.message.answer_photo(t['photo'], caption=text, reply_markup=kb)
-
-    elif data == "Назад":
-        step = ctx[uid].get("step")
-        if step == "add_tournament":
-            kb = build_keyboard(["Добавить турнир", "Загрузить фото кнопки", "Пользователи", "📢 Рассылка"])
-            await call.message.edit_text("Панель администратора:", reply_markup=kb)
-            ctx[uid]["step"] = "admin"
-        elif step == "admin":
-            await call.message.edit_text("Возврат в стартовое меню:")
-            await open_main_menu(call.message)
-        elif step == "format":
-            ctx[uid]["step"] = "stage"
-            kb = build_keyboard(["1/8", "1/4", "1/2", "финал"])
-            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-            await call.message.edit_text("🎯 Выберите стадию турнира:", reply_markup=kb)
-        elif step == "stage":
-            ctx[uid]["step"] = "time"
-            kb = build_keyboard(["18:00", "21:00"])
-            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-            await call.message.edit_text("🕒 Выберите время мероприятия:", reply_markup=kb)
-        elif step == "time":
-            ctx[uid]["step"] = "date"
-            kb = build_keyboard(get_upcoming_dates(), row=1)
+), row=1)
             kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
             await call.message.edit_text("📅 Выберите дату мероприятия:", reply_markup=kb)
         elif step == "date":
