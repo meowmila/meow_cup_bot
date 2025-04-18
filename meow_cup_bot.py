@@ -78,7 +78,7 @@ def cleanup_old():
 @dp.message(F.text == "/start")
 async def start_cmd(message: Message):
     users.add(message.from_user.id)
-    kb = build_keyboard(["турнир", "ивент", "праки"], row=1)
+    kb = build_keyboard(["турнир", "ивент", "праки"], row=3)
     pid = photos.get("меню")
     if pid:
         await message.answer_photo(pid, caption="Выберите тип:", reply_markup=kb)
@@ -166,6 +166,9 @@ async def open_main_menu(message: Message):
 @dp.callback_query()
 async def universal_flow(call: CallbackQuery):
     uid = call.from_user.id
+    if uid not in ctx:
+        ctx[uid] = {}
+    uid = call.from_user.id
     data = call.data
 
     if data in ["турнир", "ивент", "праки"]:
@@ -186,7 +189,7 @@ async def universal_flow(call: CallbackQuery):
             return await show_titles(call, uid)
         stages = sorted(set(t['stage'] for t in tournaments if t['date'] == ctx[uid]['date'] and t['time'] == data and t['type'] == ctx[uid]['type']))
         if not stages:
-            return await show_titles(call, uid)
+            return await call.message.answer("Нет стадий на эту дату", reply_markup=build_keyboard(["Назад"]))
         kb = build_keyboard(stages)
         await call.message.answer("Выберите стадию:", reply_markup=kb)
 
@@ -226,7 +229,7 @@ async def show_titles(call, uid):
         filters.get('format') is None or t.get('format') == filters['format']
     ])]
     if not filtered:
-        await call.message.answer("Нет турниров по этим параметрам")
+        await call.message.answer("Нет турниров по этим параметрам", reply_markup=build_keyboard(["Назад"]))
         return
     kb = build_keyboard([t['title'] for t in filtered], row=1)
     await call.message.answer("Выберите турнир:", reply_markup=kb)
@@ -245,7 +248,7 @@ if __name__ == '__main__':
                     print("⚠️ Пинг не удался")
                 await asyncio.sleep(300)
 
-                asyncio.create_task(ping())
+        asyncio.create_task(ping())
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
 
