@@ -72,7 +72,7 @@ def cleanup_old():
     global tournaments
     tournaments = [t for t in tournaments if t['date'] >= today]
     with open(tournaments_file, "w", encoding="utf-8") as f:
-        json.dump(tournaments, f, ensure_ascii=False, indent=2)
+        json.dump(tournaments, f, ensure_ascii=False, indent=2) >= today]
 
 # Команды
 @dp.message(F.text == "/start")
@@ -236,7 +236,14 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     async def start():
+    asyncio.create_task(ping())
     async def ping():
+        while True:
+            try:
+                await bot.get_me()
+            except:
+                pass
+            await asyncio.sleep(300)
         while True:
             try:
                 await bot.get_me()
