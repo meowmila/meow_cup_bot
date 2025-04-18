@@ -125,8 +125,10 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.message.answer(caption)
 
-@dp.message(F.photo, F.from_user.id == ADMIN_ID)
-async def add_tournament(message: Message):
+@dp.message(F.photo)
+async def add_tournament(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
     if not message.caption:
         await message.answer("❗ Добавьте подпись к фото в формате:\n\nTitle: ...\nType: Турнир/Ивент/Праки\nDate: ...\nTime: ...\nPrize: ...\nLink: ...\nAccess: Free/VIP\nStage: ...")
         return
@@ -153,13 +155,19 @@ async def add_tournament(message: Message):
     except Exception as e:
         await message.answer(f"Ошибка: {e}")
 
-@dp.message(F.text == "/broadcast", F.from_user.id == ADMIN_ID)
+@dp.message(F.text == "/broadcast")
 async def start_broadcast(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
     await state.set_state("broadcast")
     await message.answer("📢 Отправь текст или фото с подписью для рассылки:")
 
-@dp.message(F.from_user.id == ADMIN_ID, state="broadcast")
+@dp.message()
 async def broadcast_message(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return
+    if await state.get_state() != "broadcast":
+        return
     await state.clear()
     for uid in users:
         try:
