@@ -178,12 +178,14 @@ async def universal_flow(call: CallbackQuery):
         if pid:
             await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
         else:
+            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
             await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
 
     elif data in get_upcoming_dates():
         ctx[uid]["date"] = data
         kb = build_keyboard(["18:00", "21:00"])
         pid = photos.get(data)
+        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
         await call.message.edit_text("Выберите время:", reply_markup=kb)
 
     elif data in ["18:00", "21:00"]:
@@ -194,11 +196,13 @@ async def universal_flow(call: CallbackQuery):
         if not stages:
             return await call.message.answer("Нет стадий на эту дату", reply_markup=build_keyboard(["Назад"]))
         kb = build_keyboard(stages)
+        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
         await call.message.edit_text("Выберите стадию:", reply_markup=kb)
 
     elif data in ["1/8", "1/4", "1/2", "финал"]:
         ctx[uid]['stage'] = data
         kb = build_keyboard(["duo", "squad"])
+        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
         await call.message.edit_text("Выберите формат:", reply_markup=kb)
 
     elif data in ["duo", "squad"]:
@@ -235,6 +239,7 @@ async def show_titles(call, uid):
         await call.message.edit_text("Нет турниров по этим параметрам", reply_markup=build_keyboard(["Назад"]))
         return
     kb = build_keyboard([t['title'] for t in filtered], row=1)
+    kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
     await call.message.edit_text("Выберите турнир:", reply_markup=kb)
 
 # Запуск
