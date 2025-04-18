@@ -198,15 +198,7 @@ async def universal_flow(call: CallbackQuery):
         kb = build_keyboard(["18:00", "21:00"])
         pid = photos.get(data)
         kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-        await call.message.edit_text(
-    f"🕒 Выберите время мероприятия:
-
-"
-    }
-"
-    f"• Дата: {ctx[uid].get('date', '-')}",
-    reply_markup=kb
-)
+        await call.message.edit_text("🕒 Выберите время мероприятия:", reply_markup=kb)
             kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
             await call.message.edit_text("📅 Выберите дату мероприятия:", reply_markup=kb)
         elif step == "date":
