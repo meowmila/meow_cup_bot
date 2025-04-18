@@ -227,16 +227,9 @@ async def show_titles(call, uid):
     kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
     kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
     await call.message.edit_text(
-        f"🏆 Выберите турнир из списка:
-
-📌 Вы выбрали:
-• Тип: {ctx[uid].get('type', '-')}
-• Дата: {ctx[uid].get('date', '-')}
-• Время: {ctx[uid].get('time', '-')}
-• Стадия: {ctx[uid].get('stage', '-')}
-• Формат: {ctx[uid].get('format', '-')}",
-        reply_markup=kb
-    )
+    "🏆 Выберите турнир из списка:",
+    reply_markup=kb
+)
 
 @dp.message(F.chat.type.in_(["group", "supergroup"]))
 async def handle_group_messages(message: Message):
