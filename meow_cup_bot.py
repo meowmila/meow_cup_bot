@@ -184,7 +184,9 @@ async def universal_flow(call: CallbackQuery):
         if pid:
             await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
         else:
-            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+            if not hasattr(kb, 'inline_keyboard'):
+    kb.inline_keyboard = []
+kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
             try:
                 await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
             except:
