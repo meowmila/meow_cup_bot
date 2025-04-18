@@ -83,7 +83,7 @@ async def start_cmd(message: Message):
     if pid:
         await message.answer_photo(pid, caption="Выберите тип:", reply_markup=kb)
     else:
-        await message.edit_text("Выберите тип:", reply_markup=kb)
+        await message.answer("Выберите тип:", reply_markup=kb)
 
 @dp.message(F.text == "🔧 Панель администратора")
 async def admin_panel(message: Message):
@@ -175,13 +175,16 @@ async def universal_flow(call: CallbackQuery):
         ctx[uid] = {"type": data}
         kb = build_keyboard(get_upcoming_dates(), row=1)
         pid = photos.get(data)
-        await call.message.edit_media(types.InputMediaPhoto(media=pid, caption="Выберите дату:") if pid else types.InputMediaPhoto(media="", caption="Выберите дату:"), reply_markup=kb)
+        if pid:
+            await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
+        else:
+            await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
 
     elif data in get_upcoming_dates():
         ctx[uid]["date"] = data
         kb = build_keyboard(["18:00", "21:00"])
         pid = photos.get(data)
-        await call.message.answer_photo(pid, caption="Выберите время:", reply_markup=kb) if pid else await call.message.edit_text("Выберите время:", reply_markup=kb)
+        await call.message.edit_text("Выберите время:", reply_markup=kb)
 
     elif data in ["18:00", "21:00"]:
         ctx[uid]["time"] = data
@@ -196,7 +199,7 @@ async def universal_flow(call: CallbackQuery):
     elif data in ["1/8", "1/4", "1/2", "финал"]:
         ctx[uid]['stage'] = data
         kb = build_keyboard(["duo", "squad"])
-        await call.message.answer("Выберите формат:", reply_markup=kb)
+        await call.message.edit_text("Выберите формат:", reply_markup=kb)
 
     elif data in ["duo", "squad"]:
         ctx[uid]['format'] = data
@@ -229,10 +232,10 @@ async def show_titles(call, uid):
         filters.get('format') is None or t.get('format') == filters['format']
     ])]
     if not filtered:
-        await call.message.answer("Нет турниров по этим параметрам", reply_markup=build_keyboard(["Назад"]))
+        await call.message.edit_text("Нет турниров по этим параметрам", reply_markup=build_keyboard(["Назад"]))
         return
     kb = build_keyboard([t['title'] for t in filtered], row=1)
-    await call.message.answer("Выберите турнир:", reply_markup=kb)
+    await call.message.edit_text("Выберите турнир:", reply_markup=kb)
 
 # Запуск
 if __name__ == '__main__':
