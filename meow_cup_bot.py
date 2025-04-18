@@ -14,10 +14,8 @@ from aiogram.client.default import DefaultBotProperties
 API_TOKEN = "7507739946:AAE0p-9CEJWjUM0oXYamsakLvCEvz5KnLJA"
 ADMIN_ID = 947800235
 
-# ✅ правильный способ создания бота в aiogram 3.x
 bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
-
 users = set()
 tournaments_file = "tournaments.json"
 
@@ -108,9 +106,16 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
         and t.get("access") == data.get("access")
         and (t.get("stage") == data.get("stage") if data.get("type") != "Праки" else True)
     ]
+    kb = InlineKeyboardBuilder()
+    if data.get("type") != "Праки":
+        kb.button(text="Назад", callback_data="back_stage")
+    else:
+        kb.button(text="Назад", callback_data="back_access")
+
     if not filtered:
-        await callback.message.edit_text("<b>Нет доступных турниров.</b>")
+        await callback.message.edit_text("<b>Нет доступных турниров.</b>", reply_markup=kb.as_markup())
         return
+
     for t in filtered:
         caption = (
             f"<b>{t['title']}</b>\n\n"
@@ -127,12 +132,61 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.message.answer(caption)
 
+    await callback.message.answer("<b>⬅ Назад к выбору</b>", reply_markup=kb.as_markup())
+
+# Все кнопки Назад
+@dp.callback_query(F.data == "back_stage")
+async def back_to_stage(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="1/2", callback_data="stage_1/2")
+    kb.button(text="1/4", callback_data="stage_1/4")
+    kb.button(text="1/8", callback_data="stage_1/8")
+    kb.button(text="Назад", callback_data="back_time")
+    kb.adjust(2)
+    await callback.message.edit_text("<b>Выберите стадию:</b>", reply_markup=kb.as_markup())
+
+@dp.callback_query(F.data == "back_access")
+async def back_to_access(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Free", callback_data="access_Free")
+    kb.button(text="VIP", callback_data="access_VIP")
+    kb.button(text="Назад", callback_data="back_date")
+    kb.adjust(2)
+    await callback.message.edit_text("<b>Выберите доступ:</b>", reply_markup=kb.as_markup())
+
+@dp.callback_query(F.data == "back_time")
+async def back_to_time(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="18:00", callback_data="time_18")
+    kb.button(text="21:00", callback_data="time_21")
+    kb.button(text="Назад", callback_data="back_date")
+    kb.adjust(2)
+    await callback.message.edit_text("<b>Выберите время:</b>", reply_markup=kb.as_markup())
+
+@dp.callback_query(F.data == "back_date")
+async def back_to_date(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardBuilder()
+    for date in get_upcoming_dates():
+        kb.button(text=date, callback_data=f"date_{date}")
+    kb.button(text="Назад", callback_data="back_type")
+    kb.adjust(1)
+    await callback.message.edit_text("<b>Выберите дату:</b>", reply_markup=kb.as_markup())
+
+@dp.callback_query(F.data == "back_type")
+async def back_to_type(callback: CallbackQuery, state: FSMContext):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Турнир", callback_data="type_Турнир")
+    kb.button(text="Ивент", callback_data="type_Ивент")
+    kb.button(text="Праки", callback_data="type_Праки")
+    kb.adjust(2)
+    await callback.message.edit_text("<b>Выберите тип мероприятия:</b>", reply_markup=kb.as_markup())
+
 @dp.message(F.photo)
 async def add_tournament(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return
     if not message.caption:
-        await message.answer("❗ Добавьте подпись к фото в формате:\n\nTitle: ...\nType: Турнир/Ивент/Праки\nDate: ...\nTime: ...\nPrize: ...\nLink: ...\nAccess: Free/VIP\nStage: ...")
+        await message.answer("❗ Шаблон:\nTitle: ...\nType: Турнир/Ивент/Праки\nDate: ...\nTime: ...\nPrize: ...\nLink: ...\nAccess: Free/VIP\nStage: ...")
         return
     try:
         data = {line.split(":")[0].strip().lower(): line.split(":")[1].strip() for line in message.caption.split("\n") if ":" in line}
@@ -181,7 +235,6 @@ async def broadcast_message(message: Message, state: FSMContext):
             continue
     await message.answer("✅ Рассылка завершена!")
 
-# ✅ исправленная регистрация старта
 @dp.startup()
 async def on_startup(bot: Bot):
     asyncio.create_task(clean_old())
