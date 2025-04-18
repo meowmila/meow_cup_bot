@@ -49,86 +49,104 @@ async def overlay_text_on_photo(photo: types.PhotoSize, text: str) -> str:
     image.save(result_path)
     return result_path
 
-@dp.message(F.text == "/start")
-async def start(message: Message):
+# Умный переход и запись истории
+async def go_to_step(callback: CallbackQuery, state: FSMContext, step_name: str, buttons: list, title: str):
+    data = await state.get_data()
+    history = data.get("step_history", [])
+    if history and history[-1] != step_name:
+        history.append(step_name)
+    elif not history:
+        history = [step_name]
+    await state.update_data(step_history=history)
     kb = InlineKeyboardBuilder()
-    kb.button(text="Турнир", callback_data="type_Турнир")
-    kb.button(text="Ивент", callback_data="type_Ивент")
-    kb.button(text="Праки", callback_data="type_Праки")
+    for b in buttons:
+        kb.button(text=b["text"], callback_data=b["data"])
+    kb.adjust(len(buttons))
+    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
+    await callback.message.edit_text(f"<b>{title}</b>", reply_markup=kb.as_markup())
+
+# /start
+@dp.message(F.text == "/start")
+async def start(message: Message, state: FSMContext):
+    await state.clear()
+    buttons = [
+        {"text": "Турнир", "data": "type_Турнир"},
+        {"text": "Ивент", "data": "type_Ивент"},
+        {"text": "Праки", "data": "type_Праки"},
+    ]
     if message.from_user.id == ADMIN_ID:
-        kb.button(text="⚙️ Админ-панель", callback_data="admin_panel")
+        buttons.append({"text": "⚙️ Админ-панель", "data": "admin_panel"})
+    kb = InlineKeyboardBuilder()
+    for b in buttons:
+        kb.button(text=b["text"], callback_data=b["data"])
     kb.adjust(2)
     await message.answer("<b>Выберите тип мероприятия:</b>", reply_markup=kb.as_markup())
 
-# --- FSM + Back-кнопки ---
 @dp.callback_query(F.data.startswith("type_"))
-async def select_type(callback: CallbackQuery, state: FSMContext):
+async def type_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(type=callback.data.split("_")[1])
-    kb = InlineKeyboardBuilder()
-    for date in get_upcoming_dates():
-        kb.button(text=date, callback_data=f"date_{date}")
-    kb.adjust(len(get_upcoming_dates()))
-    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="back_to_start"))
-    await callback.message.edit_text("<b>Выберите дату:</b>", reply_markup=kb.as_markup())
+    buttons = [{"text": date, "data": f"date_{date}"} for date in get_upcoming_dates()]
+    await go_to_step(callback, state, "type", buttons, "Выберите дату:")
 
 @dp.callback_query(F.data.startswith("date_"))
-async def select_date(callback: CallbackQuery, state: FSMContext):
+async def date_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(date=callback.data.split("_")[1])
-    kb = InlineKeyboardBuilder()
-    kb.button(text="18:00", callback_data="time_18")
-    kb.button(text="21:00", callback_data="time_21")
-    kb.adjust(2)
-    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="back_to_type"))
-    await callback.message.edit_text("<b>Выберите время:</b>", reply_markup=kb.as_markup())
+    buttons = [
+        {"text": "18:00", "data": "time_18"},
+        {"text": "21:00", "data": "time_21"}
+    ]
+    await go_to_step(callback, state, "date", buttons, "Выберите время:")
 
 @dp.callback_query(F.data.startswith("time_"))
-async def select_time(callback: CallbackQuery, state: FSMContext):
+async def time_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(time=callback.data.split("_")[1])
-    kb = InlineKeyboardBuilder()
-    kb.button(text="🆓 Free", callback_data="access_Free")
-    kb.button(text="💎 VIP", callback_data="access_VIP")
-    kb.adjust(2)
-    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="back_to_date"))
-    await callback.message.edit_text("<b>Выберите доступ:</b>", reply_markup=kb.as_markup())
+    buttons = [
+        {"text": "🆓 Free", "data": "access_Free"},
+        {"text": "💎 VIP", "data": "access_VIP"}
+    ]
+    await go_to_step(callback, state, "time", buttons, "Выберите доступ:")
 
 @dp.callback_query(F.data.startswith("access_"))
-async def select_access(callback: CallbackQuery, state: FSMContext):
+async def access_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(access=callback.data.split("_")[1])
     data = await state.get_data()
     if data["type"] == "Праки":
         await show_tournaments(callback, state)
         return
-    kb = InlineKeyboardBuilder()
-    kb.button(text="1/2", callback_data="stage_1/2")
-    kb.button(text="1/4", callback_data="stage_1/4")
-    kb.button(text="1/8", callback_data="stage_1/8")
-    kb.adjust(3)
-    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="back_to_time"))
-    await callback.message.edit_text("<b>Выберите стадию:</b>", reply_markup=kb.as_markup())
+    buttons = [
+        {"text": "1/2", "data": "stage_1/2"},
+        {"text": "1/4", "data": "stage_1/4"},
+        {"text": "1/8", "data": "stage_1/8"},
+    ]
+    await go_to_step(callback, state, "access", buttons, "Выберите стадию:")
 
 @dp.callback_query(F.data.startswith("stage_"))
-async def select_stage(callback: CallbackQuery, state: FSMContext):
+async def stage_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(stage=callback.data.split("_")[1])
     await show_tournaments(callback, state)
 
-# --- Назад ---
-@dp.callback_query(F.data == "back_to_start")
-async def back_to_start(callback: CallbackQuery, state: FSMContext):
-    await start(callback.message)
+@dp.callback_query(F.data == "go_back")
+async def go_back(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    history = data.get("step_history", [])
+    if history:
+        history.pop()
+        await state.update_data(step_history=history)
+    if not history:
+        return await start(callback.message, state)
+    prev = history[-1]
+    if prev == "type":
+        return await type_chosen(callback, state)
+    elif prev == "date":
+        return await date_chosen(callback, state)
+    elif prev == "time":
+        return await time_chosen(callback, state)
+    elif prev == "access":
+        return await access_chosen(callback, state)
+    elif prev == "stage":
+        return await stage_chosen(callback, state)
 
-@dp.callback_query(F.data == "back_to_type")
-async def back_to_type(callback: CallbackQuery, state: FSMContext):
-    await select_type(callback, state)
-
-@dp.callback_query(F.data == "back_to_date")
-async def back_to_date(callback: CallbackQuery, state: FSMContext):
-    await select_date(callback, state)
-
-@dp.callback_query(F.data == "back_to_time")
-async def back_to_time(callback: CallbackQuery, state: FSMContext):
-    await select_time(callback, state)
-
-# --- Турниры ---
+# Показывать турнир
 async def show_tournaments(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     tournaments = load_tournaments()
@@ -141,10 +159,7 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
         and (t.get("stage") == data.get("stage") if data.get("type") != "Праки" else True)
     ]
     kb = InlineKeyboardBuilder()
-    kb.row(types.InlineKeyboardButton(
-        text="⬅ Назад",
-        callback_data="back_to_access" if data.get("type") == "Праки" else "back_to_stage"
-    ))
+    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
     if not filtered:
         await callback.message.edit_text("<b>Нет доступных турниров.</b>", reply_markup=kb.as_markup())
         return
@@ -165,13 +180,23 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer(caption)
     await callback.message.answer("⬅ Назад", reply_markup=kb.as_markup())
 
-@dp.callback_query(F.data == "back_to_stage")
-async def back_to_stage(callback: CallbackQuery, state: FSMContext):
-    await select_access(callback, state)
+# Очистка устаревших
+@dp.startup()
+async def on_start(bot: Bot):
+    asyncio.create_task(clean_old())
 
-@dp.callback_query(F.data == "back_to_access")
-async def back_to_access(callback: CallbackQuery, state: FSMContext):
-    await select_time(callback, state)
+async def clean_old():
+    while True:
+        now = datetime.now().date()
+        tournaments = load_tournaments()
+        updated = [t for t in tournaments if datetime.strptime(t["date"], "%d.%m.%Y").date() >= now]
+        save_tournaments(updated)
+        await asyncio.sleep(3600)
+
+# Запуск
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    dp.run_polling(bot)
 # --- Админ-панель ---
 @dp.callback_query(F.data == "admin_panel")
 async def admin_panel(callback: CallbackQuery):
@@ -182,17 +207,18 @@ async def admin_panel(callback: CallbackQuery):
     kb.button(text="📸 Фото с текстом", callback_data="admin_photo")
     kb.button(text="📢 Рассылка", callback_data="admin_broadcast")
     kb.adjust(1)
-    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="back_to_start"))
+    kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
     await callback.message.edit_text("<b>Панель администратора:</b>", reply_markup=kb.as_markup())
 
-# --- Добавление турнира ---
+# --- Инструкция по добавлению турнира ---
 @dp.callback_query(F.data == "admin_add")
 async def admin_add_instruct(callback: CallbackQuery):
     await callback.message.answer(
-        "Отправь фото с подписью:\n"
+        "Отправь фото с подписью в формате:\n"
         "Title: ...\nType: Турнир/Ивент/Праки\nDate: 01.01.2025\nTime: 18:00\nAccess: Free/VIP\nStage: 1/4\nPrize: ...\nLink: ..."
     )
 
+# --- Добавление турнира по фото ---
 @dp.message(F.photo, F.caption, F.from_user.id == ADMIN_ID)
 async def save_tournament(message: Message, state: FSMContext):
     if await state.get_state() == "waiting_photo_text":
@@ -240,10 +266,12 @@ async def broadcast_msg(message: Message, state: FSMContext):
     if await state.get_state() != "broadcast":
         return
     await state.clear()
-    users = {ADMIN_ID}
-    for t in load_tournaments():
+    users = set()
+    tournaments = load_tournaments()
+    for t in tournaments:
         if "telegram_id" in t:
             users.add(t["telegram_id"])
+    users.add(ADMIN_ID)
     for uid in users:
         try:
             if message.photo:
@@ -253,21 +281,3 @@ async def broadcast_msg(message: Message, state: FSMContext):
         except:
             continue
     await message.answer("✅ Рассылка завершена!")
-
-# --- Очистка ---
-@dp.startup()
-async def on_start(bot: Bot):
-    asyncio.create_task(clean_old())
-
-async def clean_old():
-    while True:
-        now = datetime.now().date()
-        tournaments = load_tournaments()
-        updated = [t for t in tournaments if datetime.strptime(t["date"], "%d.%m.%Y").date() >= now]
-        save_tournaments(updated)
-        await asyncio.sleep(3600)
-
-# --- Запуск ---
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    dp.run_polling(bot)
