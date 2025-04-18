@@ -178,19 +178,20 @@ async def universal_flow(call: CallbackQuery):
     data = call.data
 
     if data in ["турнир", "ивент", "праки"]:
-        ctx[uid] = {"type": data, "step": "type"}
-        kb = build_keyboard(get_upcoming_dates(), row=1)
-        pid = photos.get(data)
-        if pid:
-            await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
-        else:
-            if not hasattr(kb, 'inline_keyboard'):
-    kb.inline_keyboard = []
-kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-            try:
-                await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
-            except:
-                await call.message.edit_text("Выберите дату:", reply_markup=kb)
+    ctx[uid] = {"type": data, "step": "type"}
+    kb = build_keyboard(get_upcoming_dates(), row=1)
+    pid = photos.get(data)
+
+    if pid:
+        await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
+    else:
+        if not hasattr(kb, 'inline_keyboard'):
+            kb.inline_keyboard = []
+        kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+        try:
+            await call.message.edit_text("Выберите дату:", reply_markup=kb)
+        except:
+            await call.message.answer("Выберите дату:", reply_markup=kb)
             except:
                 await call.message.edit_text("Выберите дату:", reply_markup=kb)
 
