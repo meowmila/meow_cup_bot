@@ -49,7 +49,6 @@ async def overlay_text_on_photo(photo: types.PhotoSize, text: str) -> str:
     image.save(result_path)
     return result_path
 
-# Умный переход и запись истории
 async def go_to_step(callback: CallbackQuery, state: FSMContext, step_name: str, buttons: list, title: str):
     data = await state.get_data()
     history = data.get("step_history", [])
@@ -65,7 +64,6 @@ async def go_to_step(callback: CallbackQuery, state: FSMContext, step_name: str,
     kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
     await callback.message.edit_text(f"<b>{title}</b>", reply_markup=kb.as_markup())
 
-# /start
 @dp.message(F.text == "/start")
 async def start(message: Message, state: FSMContext):
     await state.clear()
@@ -111,8 +109,7 @@ async def access_chosen(callback: CallbackQuery, state: FSMContext):
     await state.update_data(access=callback.data.split("_")[1])
     data = await state.get_data()
     if data["type"] == "Праки":
-        await show_tournaments(callback, state)
-        return
+        return await show_tournaments(callback, state)
     buttons = [
         {"text": "1/2", "data": "stage_1/2"},
         {"text": "1/4", "data": "stage_1/4"},
@@ -136,17 +133,23 @@ async def go_back(callback: CallbackQuery, state: FSMContext):
         return await start(callback.message, state)
     prev = history[-1]
     if prev == "type":
-        return await type_chosen(callback, state)
+        buttons = [{"text": date, "data": f"date_{date}"} for date in get_upcoming_dates()]
+        await go_to_step(callback, state, "type", buttons, "Выберите дату:")
     elif prev == "date":
-        return await date_chosen(callback, state)
+        buttons = [{"text": "18:00", "data": "time_18"}, {"text": "21:00", "data": "time_21"}]
+        await go_to_step(callback, state, "date", buttons, "Выберите время:")
     elif prev == "time":
-        return await time_chosen(callback, state)
+        buttons = [{"text": "🆓 Free", "data": "access_Free"}, {"text": "💎 VIP", "data": "access_VIP"}]
+        await go_to_step(callback, state, "time", buttons, "Выберите доступ:")
     elif prev == "access":
-        return await access_chosen(callback, state)
-    elif prev == "stage":
-        return await stage_chosen(callback, state)
+        type_ = data.get("type")
+        if type_ == "Праки":
+            buttons = [{"text": "🆓 Free", "data": "access_Free"}, {"text": "💎 VIP", "data": "access_VIP"}]
+            await go_to_step(callback, state, "access", buttons, "Выберите доступ:")
+        else:
+            buttons = [{"text": "1/2", "data": "stage_1/2"}, {"text": "1/4", "data": "stage_1/4"}, {"text": "1/8", "data": "stage_1/8"}]
+            await go_to_step(callback, state, "access", buttons, "Выберите стадию:")
 
-# Показывать турнир
 async def show_tournaments(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     tournaments = load_tournaments()
@@ -180,24 +183,6 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer(caption)
     await callback.message.answer("⬅ Назад", reply_markup=kb.as_markup())
 
-# Очистка устаревших
-@dp.startup()
-async def on_start(bot: Bot):
-    asyncio.create_task(clean_old())
-
-async def clean_old():
-    while True:
-        now = datetime.now().date()
-        tournaments = load_tournaments()
-        updated = [t for t in tournaments if datetime.strptime(t["date"], "%d.%m.%Y").date() >= now]
-        save_tournaments(updated)
-        await asyncio.sleep(3600)
-
-# Запуск
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    dp.run_polling(bot)
-# --- Админ-панель ---
 @dp.callback_query(F.data == "admin_panel")
 async def admin_panel(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
@@ -210,7 +195,6 @@ async def admin_panel(callback: CallbackQuery):
     kb.row(types.InlineKeyboardButton(text="⬅ Назад", callback_data="go_back"))
     await callback.message.edit_text("<b>Панель администратора:</b>", reply_markup=kb.as_markup())
 
-# --- Инструкция по добавлению турнира ---
 @dp.callback_query(F.data == "admin_add")
 async def admin_add_instruct(callback: CallbackQuery):
     await callback.message.answer(
@@ -218,7 +202,6 @@ async def admin_add_instruct(callback: CallbackQuery):
         "Title: ...\nType: Турнир/Ивент/Праки\nDate: 01.01.2025\nTime: 18:00\nAccess: Free/VIP\nStage: 1/4\nPrize: ...\nLink: ..."
     )
 
-# --- Добавление турнира по фото ---
 @dp.message(F.photo, F.caption, F.from_user.id == ADMIN_ID)
 async def save_tournament(message: Message, state: FSMContext):
     if await state.get_state() == "waiting_photo_text":
@@ -247,15 +230,13 @@ async def save_tournament(message: Message, state: FSMContext):
         save_tournaments(tournaments)
         await message.answer("✅ Турнир добавлен.")
     except Exception as e:
-        await message.answer(f"❌ Ошибка при добавлении: {e}")
+        await message.answer(f"❌ Ошибка: {e}")
 
-# --- Фото с текстом ---
 @dp.callback_query(F.data == "admin_photo")
 async def ask_photo_text(callback: CallbackQuery, state: FSMContext):
     await state.set_state("waiting_photo_text")
     await callback.message.answer("📸 Отправь фото с подписью — текст будет наложен на фото.")
 
-# --- Рассылка ---
 @dp.callback_query(F.data == "admin_broadcast")
 async def start_broadcast(callback: CallbackQuery, state: FSMContext):
     await state.set_state("broadcast")
@@ -281,3 +262,19 @@ async def broadcast_msg(message: Message, state: FSMContext):
         except:
             continue
     await message.answer("✅ Рассылка завершена!")
+
+@dp.startup()
+async def on_start(bot: Bot):
+    asyncio.create_task(clean_old())
+
+async def clean_old():
+    while True:
+        now = datetime.now().date()
+        tournaments = load_tournaments()
+        updated = [t for t in tournaments if datetime.strptime(t["date"], "%d.%m.%Y").date() >= now]
+        save_tournaments(updated)
+        await asyncio.sleep(3600)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    dp.run_polling(bot)
