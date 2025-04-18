@@ -77,6 +77,7 @@ def cleanup_old():
 # Команды
 @dp.message(F.text == "/start")
 async def start_cmd(message: Message):
+    ctx[message.from_user.id] = {"step": "start"}
     users.add(message.from_user.id)
     kb = build_keyboard(["турнир", "ивент", "праки"], row=3)
     pid = photos.get("меню")
@@ -87,6 +88,7 @@ async def start_cmd(message: Message):
 
 @dp.message(F.text == "🔧 Панель администратора")
 async def admin_panel(message: Message):
+    ctx[message.from_user.id] = {"step": "admin"}
     if message.from_user.id != ADMIN_ID:
         return
     kb = build_keyboard(["Добавить турнир", "Загрузить фото кнопки", "Пользователи", "📢 Рассылка"])
@@ -109,7 +111,9 @@ async def start_broadcast(call: CallbackQuery, state: FSMContext):
 async def handle_broadcast(message: Message, state: FSMContext):
     success = 0
     fail = 0
-    for uid in users:
+    all_targets = users.union({message.chat.id})  # для чатов тоже
+
+    for uid in all_targets:
         try:
             if message.photo:
                 await bot.send_photo(uid, photo=message.photo[-1].file_id, caption=message.caption or "")
@@ -118,6 +122,7 @@ async def handle_broadcast(message: Message, state: FSMContext):
             success += 1
         except:
             fail += 1
+
     await message.answer(f"📢 Рассылка завершена! ✅ {success}, ❌ {fail}")
     await state.clear()
     with open(tournaments_file, "w", encoding="utf-8") as f:
@@ -133,18 +138,19 @@ class AddTournament(StatesGroup):
 
 @dp.callback_query(F.data == "Добавить турнир")
 async def ask_tournament_data(call: CallbackQuery, state: FSMContext):
+    ctx[call.from_user.id]["step"] = "add_tournament"
     await call.message.answer("Отправь фото с подписью в формате:\n<дата> | <время> | <тип> | <стадия> | <название> | <описание> | <ссылка>")
     await state.set_state(AddTournament.waiting_photo)
 
 @dp.message(AddTournament.waiting_photo & F.photo)
 async def handle_add_tournament(message: Message, state: FSMContext):
     if not message.caption:
-        await message.answer("Добавь подпись к фото!")
-        return
+        return await message.answer("Добавь подпись к фото!")
+
     parts = [p.strip() for p in message.caption.split("|")]
     if len(parts) != 7:
-        await message.answer("Неверный формат. Должно быть 7 параметров через |")
-        return
+        return await message.answer("Неверный формат. Должно быть 7 параметров через |")
+
     date, time, type_, stage, title, desc, link = parts
     file = await bot.download(message.photo[-1])
     img = overlay_text_on_image(file.read(), title)
@@ -153,8 +159,8 @@ async def handle_add_tournament(message: Message, state: FSMContext):
         "date": date, "time": time, "type": type_.lower(), "stage": stage,
         "title": title, "desc": desc, "link": link, "photo": sent.photo[-1].file_id
     })
-    await message.answer("✅ Турнир добавлен!")
-    await state.clear()
+    cleanup_old()
+    await message.answer("✅ Турнир сразу добавлен!")
     cleanup_old()
 
 @dp.message(F.text == "🟦 Меню")
@@ -172,24 +178,37 @@ async def universal_flow(call: CallbackQuery):
     data = call.data
 
     if data in ["турнир", "ивент", "праки"]:
-        ctx[uid] = {"type": data}
+        ctx[uid] = {"type": data, "step": "type"}
         kb = build_keyboard(get_upcoming_dates(), row=1)
         pid = photos.get(data)
         if pid:
             await call.message.edit_media(InputMediaPhoto(media=pid, caption="Выберите дату:"), reply_markup=kb)
         else:
             kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-            await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
+            try:
+                await call.message.edit_caption(caption="Выберите дату:", reply_markup=kb)
+            except:
+                await call.message.edit_text("Выберите дату:", reply_markup=kb)
+            except:
+                await call.message.edit_text("Выберите дату:", reply_markup=kb)
 
     elif data in get_upcoming_dates():
         ctx[uid]["date"] = data
+        ctx[uid]["step"] = "date"
         kb = build_keyboard(["18:00", "21:00"])
         pid = photos.get(data)
         kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-        await call.message.edit_text("Выберите время:", reply_markup=kb)
+        await call.message.edit_text(
+            f"🕒 Выберите время мероприятия:
+
+📌 Вы выбрали:
+• Тип: {ctx[uid].get('type', '-')}",
+            reply_markup=kb
+        )
 
     elif data in ["18:00", "21:00"]:
         ctx[uid]["time"] = data
+        ctx[uid]["step"] = "time"
         if ctx[uid]['type'] == "праки":
             return await show_titles(call, uid)
         stages = sorted(set(t['stage'] for t in tournaments if t['date'] == ctx[uid]['date'] and t['time'] == data and t['type'] == ctx[uid]['type']))
@@ -197,16 +216,35 @@ async def universal_flow(call: CallbackQuery):
             return await call.message.answer("Нет стадий на эту дату", reply_markup=build_keyboard(["Назад"]))
         kb = build_keyboard(stages)
         kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-        await call.message.edit_text("Выберите стадию:", reply_markup=kb)
+        await call.message.edit_text(
+            f"🎯 Выберите стадию турнира:
+
+📌 Вы выбрали:
+• Тип: {ctx[uid].get('type', '-')}
+• Дата: {ctx[uid].get('date', '-')}
+• Время: {ctx[uid].get('time', '-')}",
+            reply_markup=kb
+        )
 
     elif data in ["1/8", "1/4", "1/2", "финал"]:
         ctx[uid]['stage'] = data
+        ctx[uid]['step'] = "stage"
         kb = build_keyboard(["duo", "squad"])
         kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-        await call.message.edit_text("Выберите формат:", reply_markup=kb)
+        await call.message.edit_text(
+            f"👥 Выберите формат команд:
+
+📌 Вы выбрали:
+• Тип: {ctx[uid].get('type', '-')}
+• Дата: {ctx[uid].get('date', '-')}
+• Время: {ctx[uid].get('time', '-')}
+• Стадия: {ctx[uid].get('stage', '-')}",
+            reply_markup=kb
+        )
 
     elif data in ["duo", "squad"]:
         ctx[uid]['format'] = data
+        ctx[uid]['step'] = "format"
         await show_titles(call, uid)
 
     elif any(t['title'] == data for t in tournaments):
@@ -224,7 +262,35 @@ async def universal_flow(call: CallbackQuery):
         await call.message.answer_photo(t['photo'], caption=text, reply_markup=kb)
 
     elif data == "Назад":
-        await open_main_menu(call.message)
+        step = ctx[uid].get("step")
+        if step == "add_tournament":
+            kb = build_keyboard(["Добавить турнир", "Загрузить фото кнопки", "Пользователи", "📢 Рассылка"])
+            await call.message.edit_text("Панель администратора:", reply_markup=kb)
+            ctx[uid]["step"] = "admin"
+        elif step == "admin":
+            await call.message.edit_text("Возврат в стартовое меню:")
+            await open_main_menu(call.message)
+        elif step == "format":
+            ctx[uid]["step"] = "stage"
+            kb = build_keyboard(["1/8", "1/4", "1/2", "финал"])
+            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+            await call.message.edit_text("🎯 Выберите стадию турнира:", reply_markup=kb)
+        elif step == "stage":
+            ctx[uid]["step"] = "time"
+            kb = build_keyboard(["18:00", "21:00"])
+            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+            await call.message.edit_text("🕒 Выберите время мероприятия:", reply_markup=kb)
+        elif step == "time":
+            ctx[uid]["step"] = "date"
+            kb = build_keyboard(get_upcoming_dates(), row=1)
+            kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+            await call.message.edit_text("📅 Выберите дату мероприятия:", reply_markup=kb)
+        elif step == "date":
+            ctx[uid]["step"] = "type"
+            kb = build_keyboard(["турнир", "ивент", "праки"], row=3)
+            await call.message.edit_text("🔘 Выберите тип мероприятия:", reply_markup=kb)
+        else:
+            await open_main_menu(call.message)
 
 async def show_titles(call, uid):
     filters = ctx[uid]
@@ -236,11 +302,34 @@ async def show_titles(call, uid):
         filters.get('format') is None or t.get('format') == filters['format']
     ])]
     if not filtered:
-        await call.message.edit_text("Нет турниров по этим параметрам", reply_markup=build_keyboard(["Назад"]))
+        await call.message.edit_text("❌ Нет турниров по выбранным параметрам.", reply_markup=build_keyboard(["◀ Назад"]))
         return
     kb = build_keyboard([t['title'] for t in filtered], row=1)
     kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
-    await call.message.edit_text("Выберите турнир:", reply_markup=kb)
+    kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
+    await call.message.edit_text(
+        f"🏆 Выберите турнир из списка:
+
+📌 Вы выбрали:
+• Тип: {ctx[uid].get('type', '-')}
+• Дата: {ctx[uid].get('date', '-')}
+• Время: {ctx[uid].get('time', '-')}
+• Стадия: {ctx[uid].get('stage', '-')}
+• Формат: {ctx[uid].get('format', '-')}",
+        reply_markup=kb
+    )
+
+@dp.message(F.chat.type.in_(["group", "supergroup"]))
+async def handle_group_messages(message: Message):
+    await message.reply("Привет! Я готов работать, но используй /start в личке 💌")
+
+@dp.message(F.chat.type.in_(["group", "supergroup"]) & F.text == "/турнир")
+async def group_add_tournament_start(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        return await message.reply("⛔ Только админ может добавлять турнир из группы.")
+    await state.set_state(AddTournament.waiting_photo)
+    await message.reply("Отправьте фото с подписью в формате:
+<дата> | <время> | <тип> | <стадия> | <название> | <описание> | <ссылка>")
 
 # Запуск
 if __name__ == '__main__':
