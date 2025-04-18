@@ -236,16 +236,18 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     async def start():
-    async def ping():
-        while True:
-            try:
-                await bot.get_me()
-                print("⏳ Пинг Telegram: OK")
-            except:
-                print("⚠️ Пинг не удался")
-            await asyncio.sleep(300)
+        async def ping():
+            while True:
+                try:
+                    await bot.get_me()
+                    print("⏳ Пинг Telegram: OK")
+                except:
+                    print("⚠️ Пинг не удался")
+                await asyncio.sleep(300)
 
-        await bot.delete_webhook(drop_pending_updates=True)
+        asyncio.create_task(ping())
+
+                await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
 
     asyncio.run(start())
