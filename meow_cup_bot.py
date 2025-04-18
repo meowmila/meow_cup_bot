@@ -202,13 +202,11 @@ async def universal_flow(call: CallbackQuery):
     f"🕒 Выберите время мероприятия:
 
 "
-    f"📌 Вы выбрали:
-"
-    f"• Тип: {ctx[uid].get('type', '-')}
+    }
 "
     f"• Дата: {ctx[uid].get('date', '-')}",
     reply_markup=kb
-) row=1)
+)
             kb.inline_keyboard.append([InlineKeyboardButton(text="◀ Назад", callback_data="Назад")])
             await call.message.edit_text("📅 Выберите дату мероприятия:", reply_markup=kb)
         elif step == "date":
