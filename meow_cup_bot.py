@@ -21,14 +21,7 @@ bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 
 users = set()
-import json
-
-tournaments_file = "tournaments.json"
-if os.path.exists(tournaments_file):
-    with open(tournaments_file, "r", encoding="utf-8") as f:
-        tournaments = json.load(f)
-else:
-    tournaments = []
+tournaments = []
 photos = {}
 ctx = {}
 
@@ -71,9 +64,7 @@ def cleanup_old():
     today = datetime.now().strftime("%d.%m.%Y")
     global tournaments
     tournaments = [t for t in tournaments if t['date'] >= today]
-    with open(tournaments_file, "w", encoding="utf-8") as f:
-        json.dump(tournaments, f, ensure_ascii=False, indent=2)
-
+    
 # Команды
 @dp.message(F.text == "/start")
 async def start_cmd(message: Message):
@@ -125,8 +116,6 @@ async def handle_broadcast(message: Message, state: FSMContext):
 
     await message.answer(f"📢 Рассылка завершена! ✅ {success}, ❌ {fail}")
     await state.clear()
-    with open(tournaments_file, "w", encoding="utf-8") as f:
-        json.dump(tournaments, f, ensure_ascii=False, indent=2)
 
 @dp.message(F.from_user.id == ADMIN_ID, F.photo, F.caption)
 async def photo_button_upload(message: Message):
@@ -178,7 +167,7 @@ async def universal_flow(call: CallbackQuery):
     data = call.data
 
     if data in ["турнир", "ивент", "праки"]:
-        ctx[uid] = {"type": data, "step": "type"}
+            ctx[uid] = {"type": data, "step": "type"}
     kb = build_keyboard(get_upcoming_dates(), row=1)
     pid = photos.get(data)
 
