@@ -11,8 +11,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from PIL import Image, ImageDraw, ImageFont
 
-API_TOKEN = "YOUR_BOT_TOKEN"  # ЗАМЕНИ НА НАСТОЯЩИЙ ТОКЕН
-ADMIN_ID = 123456789           # ЗАМЕНИ НА СВОЙ ID
+API_TOKEN = "7507739946:AAE0p-9CEJWjUM0oXYamsakLvCEvz5KnLJA"
+ADMIN_ID = 947800235
 
 bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
