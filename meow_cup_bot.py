@@ -51,7 +51,7 @@ async def select_type(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     for date in get_upcoming_dates():
         kb.button(text=date, callback_data=f"date_{date}")
-    kb.button(text="Назад", callback_data="back_start")
+    kb.button(text="⬅ Назад", callback_data="back_start")
     kb.adjust(1)
     await callback.message.edit_text("<b>Выберите дату:</b>", reply_markup=kb.as_markup())
 
@@ -61,7 +61,7 @@ async def select_date(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     kb.button(text="18:00", callback_data="time_18")
     kb.button(text="21:00", callback_data="time_21")
-    kb.button(text="Назад", callback_data="back_type")
+    kb.button(text="⬅ Назад", callback_data="back_type")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите время:</b>", reply_markup=kb.as_markup())
 
@@ -71,7 +71,7 @@ async def select_time(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     kb.button(text="Free", callback_data="access_Free")
     kb.button(text="VIP", callback_data="access_VIP")
-    kb.button(text="Назад", callback_data="back_date")
+    kb.button(text="⬅ Назад", callback_data="back_date")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите доступ:</b>", reply_markup=kb.as_markup())
 
@@ -86,7 +86,7 @@ async def select_access(callback: CallbackQuery, state: FSMContext):
     kb.button(text="1/2", callback_data="stage_1/2")
     kb.button(text="1/4", callback_data="stage_1/4")
     kb.button(text="1/8", callback_data="stage_1/8")
-    kb.button(text="Назад", callback_data="back_time")
+    kb.button(text="⬅ Назад", callback_data="back_time")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите стадию:</b>", reply_markup=kb.as_markup())
 
@@ -108,9 +108,9 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
     ]
     kb = InlineKeyboardBuilder()
     if data.get("type") != "Праки":
-        kb.button(text="Назад", callback_data="back_stage")
+        kb.button(text="⬅ Назад", callback_data="back_stage")
     else:
-        kb.button(text="Назад", callback_data="back_access")
+        kb.button(text="⬅ Назад", callback_data="back_access")
 
     if not filtered:
         await callback.message.edit_text("<b>Нет доступных турниров.</b>", reply_markup=kb.as_markup())
@@ -133,45 +133,48 @@ async def show_tournaments(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer(caption)
 
     await callback.message.answer("<b>⬅ Назад к выбору</b>", reply_markup=kb.as_markup())
-
-# Все кнопки Назад
+# Назад к стадии
 @dp.callback_query(F.data == "back_stage")
 async def back_to_stage(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     kb.button(text="1/2", callback_data="stage_1/2")
     kb.button(text="1/4", callback_data="stage_1/4")
     kb.button(text="1/8", callback_data="stage_1/8")
-    kb.button(text="Назад", callback_data="back_time")
+    kb.button(text="⬅ Назад", callback_data="back_time")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите стадию:</b>", reply_markup=kb.as_markup())
 
+# Назад к доступу
 @dp.callback_query(F.data == "back_access")
 async def back_to_access(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     kb.button(text="Free", callback_data="access_Free")
     kb.button(text="VIP", callback_data="access_VIP")
-    kb.button(text="Назад", callback_data="back_date")
+    kb.button(text="⬅ Назад", callback_data="back_date")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите доступ:</b>", reply_markup=kb.as_markup())
 
+# Назад к времени
 @dp.callback_query(F.data == "back_time")
 async def back_to_time(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     kb.button(text="18:00", callback_data="time_18")
     kb.button(text="21:00", callback_data="time_21")
-    kb.button(text="Назад", callback_data="back_date")
+    kb.button(text="⬅ Назад", callback_data="back_date")
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите время:</b>", reply_markup=kb.as_markup())
 
+# Назад к дате
 @dp.callback_query(F.data == "back_date")
 async def back_to_date(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
     for date in get_upcoming_dates():
         kb.button(text=date, callback_data=f"date_{date}")
-    kb.button(text="Назад", callback_data="back_type")
+    kb.button(text="⬅ Назад", callback_data="back_type")
     kb.adjust(1)
     await callback.message.edit_text("<b>Выберите дату:</b>", reply_markup=kb.as_markup())
 
+# Назад к типу
 @dp.callback_query(F.data == "back_type")
 async def back_to_type(callback: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardBuilder()
@@ -181,6 +184,7 @@ async def back_to_type(callback: CallbackQuery, state: FSMContext):
     kb.adjust(2)
     await callback.message.edit_text("<b>Выберите тип мероприятия:</b>", reply_markup=kb.as_markup())
 
+# Добавление турнира
 @dp.message(F.photo)
 async def add_tournament(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
@@ -211,6 +215,7 @@ async def add_tournament(message: Message, state: FSMContext):
     except Exception as e:
         await message.answer(f"Ошибка: {e}")
 
+# Рассылка
 @dp.message(F.text == "/broadcast")
 async def start_broadcast(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
@@ -235,6 +240,7 @@ async def broadcast_message(message: Message, state: FSMContext):
             continue
     await message.answer("✅ Рассылка завершена!")
 
+# Очистка старых турниров
 @dp.startup()
 async def on_startup(bot: Bot):
     asyncio.create_task(clean_old())
@@ -247,6 +253,7 @@ async def clean_old():
         save_tournaments(updated)
         await asyncio.sleep(3600)
 
+# Запуск
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     dp.run_polling(bot)
