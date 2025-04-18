@@ -253,6 +253,11 @@ if __name__ == '__main__':
 
         asyncio.create_task(ping())
         await bot.delete_webhook(drop_pending_updates=True)
+        await asyncio.sleep(1)
+        try:
+            await bot.get_updates(offset=-1)
+        except:
+            pass
         await dp.start_polling(bot)
 
     asyncio.run(start())
