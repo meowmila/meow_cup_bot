@@ -72,7 +72,7 @@ def cleanup_old():
     global tournaments
     tournaments = [t for t in tournaments if t['date'] >= today]
     with open(tournaments_file, "w", encoding="utf-8") as f:
-        json.dump(tournaments, f, ensure_ascii=False, indent=2) >= today]
+        json.dump(tournaments, f, ensure_ascii=False, indent=2)
 
 # Команды
 @dp.message(F.text == "/start")
