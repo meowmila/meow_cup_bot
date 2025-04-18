@@ -328,30 +328,14 @@ async def group_add_tournament_start(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
         return await message.reply("⛔ Только админ может добавлять турнир из группы.")
     await state.set_state(AddTournament.waiting_photo)
-    await message.reply("Отправьте фото с подписью в формате:
-<дата> | <время> | <тип> | <стадия> | <название> | <описание> | <ссылка>")
+    await message.reply("Отправьте фото с подписью в формате:\n<дата> | <время> | <тип> | <стадия> | <название> | <описание> | <ссылка>")
 
 # Запуск
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    async def start():
-        async def ping():
-            while True:
-                try:
-                    await bot.get_me()
-                    print("⏳ Пинг Telegram: OK")
-                except:
-                    print("⚠️ Пинг не удался")
-                await asyncio.sleep(300)
-
-        asyncio.create_task(ping())
+    async def main():
         await bot.delete_webhook(drop_pending_updates=True)
-        await asyncio.sleep(1)
-        try:
-            await bot.get_updates(offset=-1)
-        except:
-            pass
         await dp.start_polling(bot)
 
-    asyncio.run(start())
+    asyncio.run(main())
